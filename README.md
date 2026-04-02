@@ -204,3 +204,50 @@ java -cp "Client.jar:gson-2.13.2.jar" connections_app.ClientMain
 ### 5.3 Comandi per poter usufruire del programma
 
 Una volta avviato prima il server e successivamente il client, e dopo la comparsa dei messaggi:
+"Connessione stabilita con il server."
+"Benvenuto nel gioco Connections!"
+
+è possibile utilizzare i seguenti comandi tramite interfaccia a linea di comando.
+
+---
+
+#### Comandi sempre disponibili
+
+| Comando | Descrizione |
+|--------|------------|
+| `help` | Mostra la lista completa dei comandi supportati dal client |
+| `exit` | Termina il client e chiude correttamente la connessione |
+
+---
+
+#### Comandi disponibili se l’utente NON è loggato
+
+| Comando | Descrizione |
+|--------|------------|
+| `register <username> <password>` | Registra un nuovo utente |
+| `login <username> <password>` | Effettua il login e accede alla partita corrente (invia anche la porta UDP al server) |
+| `updateCredentials <oldUsername> <oldPassword> <newUsername|-> <newPassword|->` | Aggiorna username e/o password (`-` = non modificare) |
+
+**Nota:** qualsiasi altro comando viene rifiutato dal client (e dal server).
+
+---
+
+#### Comandi disponibili se l’utente è loggato
+
+| Comando | Descrizione |
+|--------|------------|
+| `logout` | Effettua il logout e termina la partecipazione alla partita |
+| `submitProposal <word1> <word2> <word3> <word4>` | Invia una proposta di 4 parole (usa `_` per parole composte) |
+| `requestGameInfo <gameId>` | Informazioni su una partita (`-1` = partita corrente) |
+| `requestGameStats <gameId>` | Statistiche aggregate (`-1` = partita corrente) |
+| `requestLeaderboard <argomento>` | Classifica: username / top N / `-1` completa |
+| `requestPlayerStats` | Statistiche personali |
+| `updateCredentials <oldUsername> <oldPassword> <newUsername|-> <newPassword|->` | Aggiorna credenziali anche durante la sessione |
+
+---
+
+#### Note
+
+- Se `gameId` coincide con la partita corrente, il server restituisce comunque i dati aggiornati della partita corrente.
+- Le notifiche di fine partita vengono ricevute tramite UDP.
+- L’auto-login alla partita successiva è gestito automaticamente dal client.
