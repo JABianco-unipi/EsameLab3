@@ -201,3 +201,6 @@ java -cp "Server.jar:gson-2.13.2.jar" connections_app.ServerMain
 ```bash
 java -cp "Client.jar:gson-2.13.2.jar" connections_app.ClientMain
 ```
+### 5.3 Comandi per poter usufruire del programma
+
+Una volta avviato prima il server e successivamente il client, e dopo la comparsa dei messaggi:
