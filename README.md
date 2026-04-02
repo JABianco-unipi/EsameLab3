@@ -226,7 +226,7 @@ Una volta avviato prima il server e successivamente il client, e dopo la compars
 |--------|------------|
 | `register <username> <password>` | Registra un nuovo utente |
 | `login <username> <password>` | Effettua il login e accede alla partita corrente (invia anche la porta UDP al server) |
-| `updateCredentials <oldUsername> <oldPassword> <newUsername|-> <newPassword|->` | Aggiorna username e/o password (`-` = non modificare) |
+| `updateCredentials <oldUsername> <oldPassword> <newUsername\|-> <newPassword\|->` | Aggiorna username e/o password (`-` = non modificare) |
 
 **Nota:** qualsiasi altro comando viene rifiutato dal client (e dal server).
 
@@ -242,7 +242,7 @@ Una volta avviato prima il server e successivamente il client, e dopo la compars
 | `requestGameStats <gameId>` | Statistiche aggregate (`-1` = partita corrente) |
 | `requestLeaderboard <argomento>` | Classifica: username / top N / `-1` completa |
 | `requestPlayerStats` | Statistiche personali |
-| `updateCredentials <oldUsername> <oldPassword> <newUsername|-> <newPassword|->` | Aggiorna credenziali anche durante la sessione |
+| `updateCredentials <oldUsername> <oldPassword> <newUsername\|-> <newPassword\|->` | Aggiorna credenziali anche durante la sessione |
 
 ---
 
