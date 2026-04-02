@@ -190,3 +190,14 @@ java -cp "bin:gson-2.13.2.jar" connections_app.ServerMain
 ```bash
 java -cp "bin:gson-2.13.2.jar" connections_app.ClientMain
 ```
+### 5.2 Esecuzione del file `.jar`
+È possibile eseguire il progetto utilizzando direttamente i file .jar forniti.
+
+#### 1. Esecuzione del Server
+```bash
+java -cp "Server.jar:gson-2.13.2.jar" connections_app.ServerMain
+```
+#### 2. Esecuzione del Client
+```bash
+java -cp "Client.jar:gson-2.13.2.jar" connections_app.ClientMain
+```
