@@ -1,220 +1,180 @@
 # EsameLab3 - Connections
 Esame di Lab3/Laboratorio di Reti
 
-# 📌 Connections Game – Progetto Client/Server
+# Progetto Connections - Documentazione
 
-## 📖 Descrizione
-Questo progetto implementa un sistema client-server per il gioco *Connections*, basato su:
-- comunicazione **TCP** per richieste sincrone
-- comunicazione **UDP** per notifiche asincrone
+## SEZ. 1: INTERPRETAZIONE DEL PROGETTO
 
-Il server gestisce la logica di gioco e la persistenza, mentre il client fornisce un'interfaccia a linea di comando per l’interazione.
+### 1.1 Modellazione della partita e dello stato dei giocatori
+La partita è stata modellata come un’entità globale unica, condivisa da tutti i giocatori durante il suo intervallo temporale di validità.
 
----
+Parallelamente, per ciascun utente è mantenuto uno stato di partita separato, che tiene traccia delle proposte corrette, degli errori e del punteggio.
 
-## 📚 Indice
-- [1. Interpretazione del progetto](#-1-interpretazione-del-progetto)
-- [2. Architettura dei thread](#-2-architettura-dei-thread)
-- [3. Strutture dati](#-3-strutture-dati)
-- [4. Sincronizzazione](#-4-sincronizzazione)
-- [5. Compilazione ed esecuzione](#-5-compilazione-ed-esecuzione)
-- [6. Comandi](#-6-comandi)
+Questa separazione consente di gestire correttamente situazioni in cui giocatori diversi si trovano in fasi differenti della stessa partita globale, pur condividendo le stesse parole.
 
 ---
 
-# 🧠 1. Interpretazione del progetto
+### 1.2 Politica di persistenza: quando salvare utenti e partite
+La specifica richiede persistenza periodica e consistenza in caso di riavvio, senza imporre una strategia unica.
 
-## 1.1 Modellazione della partita
-La partita è modellata come:
-- un’entità **globale condivisa**
-- uno **stato per ogni giocatore**
+Nel progetto consegnato si è scelto di differenziare tra:
 
-Lo stato per utente include:
-- proposte corrette
-- errori
-- punteggio
+- Salvataggio delle partite: eseguito alla fine della partita, quando l’esito globale è determinato e i risultati sono stabili
+- Salvataggio dei profili utente: eseguito periodicamente anche durante la partita, così da ridurre la perdita di dati (es. progressi, aggiornamenti credenziali, statistiche) in caso di chiusura inattesa del server
 
-👉 I giocatori possono trovarsi in fasi diverse della stessa partita.
+Questa scelta bilancia consistenza (partite salvate solo quando concluse) e robustezza (utenti aggiornati con maggiore frequenza).
 
 ---
 
-## 1.2 Politica di persistenza
-Scelta adottata:
+### 1.3 Stato di login mantenuto sia lato server che lato client
+La specifica non vincola dove mantenere lo stato di sessione; nel progetto si è scelto di mantenere:
 
-- **Partite**
-  - salvate alla fine della partita
-- **Utenti**
-  - salvati periodicamente durante l’esecuzione
+- Stato di login lato server, necessario per autorizzare le operazioni e gestire correttamente la transizione tra “fase login/registrazione” e “fase partita”
+- Stato di login lato client, usato principalmente per supportare la logica di auto-login alla partita successiva e per l’invio di comandi già filtrato lato client
 
-👉 Consistenza + tolleranza ai guasti.
+Nel server questo si riflette nel ciclo di gestione delle richieste: finché l’utente non risulta loggato il server accetta solo operazioni di login/registrazione/aggiornamento credenziali; durante la sessione loggata vengono gestite le operazioni di gioco.
 
 ---
 
-## 1.3 Stato di login
-Gestito sia:
-- lato **server** → autorizzazione operazioni
-- lato **client** → supporto logica interna (auto-login)
+### 1.4 Auto-login alla partita successiva basato su notifica UDP e coda comandi
+Il progetto prevede notifiche asincrone via UDP, ma non impone come gestire l’ingresso automatico nella partita successiva. La scelta adottata è:
+
+- Il server invia un’unica notifica asincrona: la fine partita
+- Quando il client riceve tale notifica, accoda automaticamente un comando di login nella propria queue interna
+- Il comando accodato viene poi inviato al server per effettuare l’accesso immediato alla partita successiva senza intervento dell’utente
+
+Questa soluzione mantiene il canale TCP dedicato alle normali richieste/risposte, e sfrutta UDP solo come “trigger” per un’azione automatica lato client.
 
 ---
 
-## 1.4 Auto-login con UDP
-- Il server invia una notifica di fine partita via UDP
-- Il client:
-  - riceve la notifica
-  - accoda automaticamente un comando di login
+### 1.5 Gestione cambio credenziali e coerenza dell’auto-login
+La specifica consente l’operazione di aggiornamento credenziali anche in sessione. Per evitare incongruenze tra credenziali “vecchie” e “nuove” durante l’auto-login, il client conserva localmente eventuali credenziali aggiornate e:
 
-👉 UDP usato come trigger asincrono.
+- Tiene conto di cambi username/password durante la sessione di gioco
+- Considera anche l’eventualità che l’utente aggiorni le credenziali prima del login effettivo
 
----
-
-## 1.5 Gestione credenziali
-Il client:
-- supporta aggiornamenti durante la sessione
-- usa sempre le credenziali più aggiornate
+In questo modo, quando viene accodato il login automatico, il client usa sempre la versione più aggiornata delle credenziali disponibili.
 
 ---
 
-## 1.6 Fallback UDP
-Poiché UDP non garantisce consegna:
+### 1.5 Comportamento di fallback se la notifica UDP non arriva
+Dato che UDP non garantisce consegna, è stata introdotta una regola di fallback: se la notifica non arriva, il giocatore non resta bloccato. In tale situazione il server consente solamente:
 
-Se la notifica non arriva:
-- il client può solo:
-  - fare login
-  - fare logout
+- logout
+- login (alla partita successiva)
 
-👉 Evita inconsistenze di stato.
+Questa scelta evita che il client possa continuare a inviare comandi di gioco su una partita che localmente non risulta terminata, ma che lato server può essere già conclusa o in transizione.
 
 ---
 
-## 1.7 Centralizzazione della logica
-Tutta la logica di gioco è gestita dal server:
-- validazione proposte
-- gestione punteggi
+### 1.6 Centralizzazione della logica di gioco
+Tutta la logica di validazione delle proposte è stata accentrata nel server, che rappresenta l’unica autorità in grado di determinare la correttezza delle azioni dei giocatori.
+
+Questa scelta evita inconsistenze tra client e impedisce che comportamenti errati o malevoli possano compromettere lo stato del gioco.
 
 ---
 
-## 1.8 Login da un solo dispositivo
-Un utente può essere autenticato su una sola connessione attiva.
+### 1.7 Login consentito da un solo dispositivo
+Nel progetto è stato scelto di consentire l’accesso a un utente da un solo dispositivo alla volta.
+
+Il server mantiene per ciascun utente lo stato di login e rifiuta nuove richieste di login qualora l’utente risulti già autenticato da un’altra connessione attiva.
 
 ---
 
-## 1.9 Chiusura del client
-In caso di disconnessione:
-- il server rileva la chiusura
-- esegue automaticamente il logout
+### 1.8 Gestione della chiusura del client
+In caso di chiusura del client (comando exit o terminazione dell’applicazione) mentre l’utente risulta loggato, il server rileva la chiusura della connessione ed esegue automaticamente il logout lato server.
+
+Questa scelta mantiene la consistenza dello stato di login, evitando che un utente resti erroneamente autenticato dopo una disconnessione improvvisa.
 
 ---
 
-# 🧵 2. Architettura dei thread
+## SEZ. 2: SCHEMA GENERALE DEI THREAD
 
-## 2.1 Thread lato server
+### 2.1 Thread lato server
 
-### Thread principale
-- inizializzazione strutture dati
-- ascolto connessioni TCP
-- assegnazione thread dal pool
+#### Thread principale del server
+È responsabile dell’avvio dell’applicazione, dell’inizializzazione delle strutture dati condivise (profili utenti, partita corrente) e dell’ascolto delle connessioni TCP in ingresso.
 
----
-
-### Thread pool (ConnectionsHandler)
-Per ogni client:
-- gestione login/registrazione
-- gestione stato utente
-- ricezione comandi JSON
-- invio risposte TCP
+Per ogni nuova connessione accettata, il server delega la gestione del client a un thread del pool.
 
 ---
 
-### Thread partita (PartitaHandler)
-Gestisce il tempo di gioco:
-- fine partita:
-  - marca partita terminata
-  - salva su file JSON
-  - aggiorna statistiche
-  - invia notifiche UDP
-  - inizializza nuova partita
+#### Thread del pool (ConnectionsHandler)
+Ogni client connesso è gestito da un’istanza di ConnectionsHandler, eseguita all’interno di un thread del pool.
+
+Questo thread:
+- gestisce la fase di login/registrazione
+- mantiene lo stato del giocatore associato alla connessione
+- riceve e processa i comandi JSON del client
+- invia le risposte sincrone tramite TCP
+
+Il thread rimane attivo per l’intera durata della connessione TCP.
 
 ---
 
-### Thread persistenza (FileLogsHandler)
-- salvataggio periodico utenti su file JSON
+#### Thread di gestione della partita (PartitaHandler)
+- marca la partita come terminata
+- salva la partita su file JSON (GameId.json)
+- aggiorna le statistiche globali
+- invia la notifica UDP
+- prepara la partita successiva
 
 ---
 
-## 2.2 Thread lato client
+#### Thread per la persistenza (FileLogsHandler)
+- salva periodicamente i profili utente su JSON
 
-### Thread principale (rete)
+---
+
+### 2.2 Thread lato client
+
+#### Thread principale
 Gestisce:
-- connessione TCP (OP_CONNECT)
-- invio comandi (OP_WRITE)
-- ricezione risposte (OP_READ)
-- ricezione notifiche UDP
+- TCP (connect, write, read)
+- UDP (notifiche fine partita)
+- auto-login
 
 ---
 
-### Thread input
-- legge comandi da stdin
+#### Thread input
+- legge da stdin
 - genera JSON
-- inserisce nella `BlockingQueue`
-- attiva `selector.wakeup()`
+- inserisce nella commandQueue
 
 ---
 
-# 🗃️ 3. Strutture dati
+## SEZ. 3: STRUTTURE DATI
 
-## 3.1 Server
-
-- `ConcurrentHashMap<String, Player>`
-- `ConcurrentHashMap<String, RisultatiPartita>`
-- `ConcurrentHashMap<String, SocketAddress>`
-- `HashMap<String, String[]>`
-- `TreeMap<Integer, HashSet<String>>`
-- `HashSet<HashSet<String>>`
-- `HashSet<String>`
-
----
-
-## 3.2 Client
-
-- `BlockingQueue<String>`
-- `ByteBuffer`
+### Lato server
+- ConcurrentHashMap<String, Player>
+- ConcurrentHashMap<String, RisultatiPartita>
+- ConcurrentHashMap<String, SocketAddress>
+- HashMap<String,String[]>
+- TreeMap<Integer, HashSet<String>>
+- HashSet<HashSet<String>>
+- HashSet<String>
 
 ---
 
-# 🔒 4. Sincronizzazione
-
-## 4.1 Monitor Java (`synchronized`)
-Usati per:
-- gestione partita
-- aggiornamento dati
-- scrittura file
+### Lato client
+- BlockingQueue<String>
+- ByteBuffer
 
 ---
 
-## 4.2 Collezioni concorrenti
-- `ConcurrentHashMap`
+## SEZ. 4: SINCRONIZZAZIONE
+
+- synchronized (monitor Java)
+- ConcurrentHashMap
+- AtomicInteger / AtomicBoolean
+- volatile
+- BlockingQueue
 
 ---
 
-## 4.3 Variabili atomiche
-- `AtomicInteger`
-- `AtomicBoolean`
+## SEZ. 5: COMPILAZIONE ED ESECUZIONE
 
----
-
-## 4.4 Visibilità
-- variabili `volatile`
-
----
-
-## 4.5 Client
-- modello produttore-consumatore con `BlockingQueue`
-
----
-
-# ⚙️ 5. Compilazione ed esecuzione
-
-## 5.1 Da sorgente
+### Da sorgente
 
 ```bash
 mkdir -p bin
