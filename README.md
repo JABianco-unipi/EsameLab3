@@ -1,8 +1,6 @@
 # EsameLab3 - Connections
 Esame di Lab3/Laboratorio di Reti
 
-# Progetto Connections - Documentazione
-
 ## SEZ. 1: INTERPRETAZIONE DEL PROGETTO
 
 ### 1.1 Modellazione della partita e dello stato dei giocatori
@@ -172,10 +170,23 @@ Gestisce:
 
 ---
 
-## SEZ. 5: COMPILAZIONE ED ESECUZIONE
+## SEZ. 5: ISTRUZIONI SU COME COMPILARE E ESEGUIRE IL PROGETTO
 
-### Da sorgente
+### 5.1 Compilazione da file sorgente
 
+Per compilare il progetto a partire dal codice sorgente è necessario aprire un terminale nella cartella del progetto  
+**ConsegnaProgettoLAB3(671859)**, che include la libreria esterna Gson.
+
+#### 1. Creazione dei file `.class`
 ```bash
 mkdir -p bin
 javac -cp ".:gson-2.13.2.jar" -d bin $(find . -name "*.java")
+```
+#### 2. Esecuzione del Server
+```bash
+java -cp "bin:gson-2.13.2.jar" connections_app.ServerMain
+```
+#### 3. Esecuzione del Client
+```bash
+java -cp "bin:gson-2.13.2.jar" connections_app.ClientMain
+```
